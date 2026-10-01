@@ -1,0 +1,1238 @@
+
+################################################################################
+### ANALISE DE ATMOMETROS
+################################################################################
+
+##Bibliotecas
+windowsFonts(A=windowsFont("Arial"))
+
+options(OutDec = ",")
+
+library(readxl)
+library(AgroR)
+library(corrplot)
+library(ggplot2)
+library(dlookr)
+library(sciplot)
+library(metan) #pacote interessante para construcao de graficos (regressao para esquema fatorial)
+library(performance)
+library(lme4)
+library(dplyr)
+library(RColorBrewer)  # Para paleta de cores
+library(ExpDes.pt)
+library(agricolae)
+library(ggpubr)
+
+
+### Análise inicial
+################################################################################
+
+dados_fase1=read_excel("~/UNESP/Tese/Redacao_tese/Artigo3_dispositivoAutonomo_evapotranspiracao_baixoCusto/Analise_final/20032025_Analise_Atmometros_avaliacaoInicial_75mm.xlsx", 
+                       sheet = "Grafico_5_Correlacao"); dados_fase1
+
+
+### Variáveis
+
+eto_pm=dados_fase1$`ETo-PM`; eto_pm #evapotranspiração de referência
+tm=dados_fase1$TM; tm #temperatura média
+ur=dados_fase1$UR; ur #umidade relativa
+rs=dados_fase1$Rs; rs #radiação solar
+ev_amm1=dados_fase1$`EV-AMM1`; ev_amm1=round(ev_amm1, 2); ev_amm1 #registros atmometros 1
+ev_amm2=dados_fase1$`EV-AMM2`; ev_amm2=round(ev_amm2, 2); ev_amm2 #registros atmometros 2
+ev_amm3=dados_fase1$`EV-AMM3`; ev_amm3=round(ev_amm3, 2); ev_amm3 #registros atmometros 3
+ev_amm4=dados_fase1$`EV-AMM4`; ev_amm4=round(ev_amm4, 2); ev_amm4 #registros atmometros 4
+ev_amm5=dados_fase1$`EV-AMM5`; ev_amm5=round(ev_amm5, 2); ev_amm5 #registros atmometros 5
+ev_amm6=dados_fase1$`EV-AMM6`; ev_amm6=round(ev_amm6, 2); ev_amm6 #registros atmometros 6
+
+
+### Análise descritiva
+
+mean_eto=mean(eto_pm); mean_eto #4.72
+sd_eto=sd(eto_pm); sd_eto #1.18
+cv_eto=sd_eto/mean_eto; cv_eto #0.27
+
+mean_amm1=mean(ev_amm1); mean_amm1 #7.35
+sd_amm1=sd(ev_amm1); sd_amm1 #2.99
+cv_amm1=sd_amm1/mean_amm1; cv_amm1 #0.41
+
+mean_amm2=mean(ev_amm2); mean_amm2 #8.00
+sd_amm2=sd(ev_amm2); sd_amm2 #3.19
+cv_amm2=sd_amm2/mean_amm2; cv_amm2 #0.39
+
+mean_amm3=mean(ev_amm3); mean_amm3 #7.59
+sd_amm3=sd(ev_amm3); sd_amm3 #2.79
+cv_amm3=sd_amm3/mean_amm3; cv_amm3 #0.37
+
+mean_amm4=mean(ev_amm4); mean_amm4 #7.59
+sd_amm4=sd(ev_amm4); sd_amm4 #2.96
+cv_amm4=sd_amm4/mean_amm4; cv_amm4 #0.39
+
+mean_amm1=mean(ev_amm1); mean_amm1 #7.35
+sd_amm1=sd(ev_amm1); sd_amm1 #2.99
+cv_amm1=sd_amm1/mean_amm1; cv_amm1 #0.41
+
+mean_amm5=mean(ev_amm5); mean_amm5 #7.49
+sd_amm5=sd(ev_amm5); sd_amm5 #2.79
+cv_amm5=sd_amm5/mean_amm5; cv_amm5 #0.37
+
+mean_amm6=mean(ev_amm6); mean_amm6 #7.49
+sd_amm6=sd(ev_amm6); sd_amm6 #2.79
+cv_amm6=sd_amm6/mean_amm6; cv_amm6 #0.37
+
+
+amm_gl=data.frame(c(ev_amm1,ev_amm2,ev_amm3,ev_amm4,ev_amm5,ev_amm6))
+amm_gl2=data.frame(y=c(ev_amm1,ev_amm2,ev_amm3,ev_amm4,ev_amm5,ev_amm6), trat=c( rep(1,42), rep(2,42), rep(3,42), rep(4,42), rep(5,42), rep(6,42))); amm_gl2 #base de dados com registros de todos os atmometros 
+
+boxplot(amm_gl2$y~amm_gl2$trat, xlab = "Atmômetros", ylab = "ET (mm/dia)") #gráfico box-plot
+
+y=amm_gl2$y; y #registros globais
+
+mean_y=mean(y); mean_y #7.59
+sd_y=sd(y); sd_y #2.9
+cv_y=sd_y/mean_y; cv_y #0.38
+
+
+mean_tm=mean(tm); mean_tm #23.16
+sd_tm=sd(tm); sd_tm #2.35
+cv_tm=sd_tm/mean_tm; cv_tm #0.01
+
+mean_ur=mean(ur); mean_ur #73.10
+sd_ur=sd(ur); sd_ur #12.02
+cv_ur=sd_ur/mean_ur; cv_ur #0.16
+
+mean_rs=mean(rs); mean_rs #21.98
+sd_rs=sd(rs); sd_rs #5.9
+cv_rs=sd_rs/mean_rs; cv_rs #0.27
+
+
+############################ Analise de correlação ############################
+###############################################################################
+
+
+##Matriz de correlação solo 1
+
+
+mcor_amm <- cor(dados_fase1)
+round(mcor_amm, digits = 2)
+set.seed(0)
+
+##Gráfico de correlação
+
+corgraph(dados_fase1[,]) + #mostra a indicação do nível de significância
+  theme(
+    text = element_text(family = "Arial", size = 12)  # Ajusta fonte e tamanho
+  )
+
+
+#################### Analise de Regressão (linear simples) ####################
+###############################################################################
+
+################################# Atmometro 1 #################################
+
+mod_amm1=lm(eto_pm ~ ev_amm1)
+summary(mod_amm1) 
+b_amm1 = 1.97070 
+a_amm1 = 0.31284 
+r2_amm1 = 0.6368
+
+eto_amm1=b_amm1+a_amm1*ev_amm1; list(eto_amm1)
+eto_amm1=round(eto_amm1,2); eto_amm1 #modelo p/ amm1 (ETo-PM vs EV-AMM1)
+
+## Indicadores de desemoenho
+
+rmse_amm1 <- sqrt(mean((eto_pm - eto_amm1)^2)); rmse_amm1 #RMSE = 0.6867002
+mbe_amm1=mean(eto_amm1-eto_pm); mbe_amm1 #MBE = -0.0004761905
+numerador_amm1 <- sum((eto_pm - eto_amm1)^2)
+denominador_amm1 <- sum((abs(eto_amm1 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm1 <- 1 - (numerador_amm1 / denominador_amm1); d_amm1 # d = 0.8840657
+sd_amm1=sd(eto_amm1); sd_amm1
+
+## Gráfico com a linha de regressão
+
+ggplot(dados_fase1, aes(x = ev_amm1, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM1 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm1, 2), 
+                          " + ", round(a_amm1, 2), "x\nR² = ", round(r2_amm1, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+## Estimativa de erro
+
+sd_amm1=sd(eto_amm1); sd_amm1
+edt_amm1=eto_pm-eto_amm1; edt_amm1
+edt_perc_amm1=(abs((eto_amm1-eto_pm)/eto_pm))*100; edt_perc_amm1 #percentagem de erro
+
+
+plot(tm, edt_perc_amm1)
+plot(ur, edt_perc_amm1)
+plot(rs, edt_perc_amm1)
+plot(eto_pm, edt_perc_amm1)
+
+
+################################# Atmometro 2 #################################
+
+mod_amm2=lm(eto_pm ~ ev_amm2)
+summary(mod_amm2)
+
+b_amm2 = 1.65835
+a_amm2 = 0.32652
+r2_amm2 = 0.7932 
+
+eto_amm2=b_amm2+a_amm2*ev_amm2; eto_amm2=round(eto_amm2, 2); eto_amm2 #modelo p/ amm1 (ETo-PM vs EV-AMM2)
+
+## Indicadores de desempenho
+
+rmse_amm2 <- sqrt(mean((eto_pm - eto_amm2)^2)); rmse_amm2 #RMSE = 0.518202
+mbe_amm2=mean(eto_amm2 - eto_pm); mbe_amm2 #MBE = -3.700735e-17
+numerador_amm2 <- sum((eto_pm - eto_amm2)^2)
+denominador_amm2 <- sum((abs(eto_amm2 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm2 <- 1 - (numerador_amm2 / denominador_amm2); d_amm2 #d = 0.9412526
+sd_amm2=sd(eto_amm2); sd_amm2
+
+# Gráfico com a linha de regressão
+
+ggplot(dados_fase1, aes(x = ev_amm2, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM2 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm2, 2), 
+                          " + ", round(a_amm2, 2), "x\nR² = ", round(r2_amm2, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+## Estimativa de erro
+
+sd_amm2=sd(eto_amm2); sd_amm2
+edt_amm2=eto_pm-eto_amm2; edt_amm2
+edt_perc_amm2=(abs((eto_amm2-eto_pm)/eto_pm))*100; edt_perc_amm2 #percentagem de erro
+
+plot(tm, edt_perc_amm2)
+plot(ur, edt_perc_amm2) #observa-se que a maior diferença ocorre para valores de umidade relativa maiores
+plot(rs, edt_perc_amm2)
+plot(eto_pm, edt_perc_amm2)
+
+
+################################# Atmometro 3 #################################
+
+mod_amm3=lm(eto_pm ~ ev_amm3)
+summary(mod_amm3)
+
+b_amm3=1.45993
+a_amm3 = 0.37045
+r2_amm3 = 0.7817 
+
+eto_amm3=b_amm3+a_amm3*ev_amm3; list(eto_amm3) #modelo p/ amm1 (ETo-PM vs EV-AMM2)
+
+
+## Indicadores 
+
+rmse_amm3 <- sqrt(mean((eto_pm - eto_amm3)^2)); rmse_amm3 #RMSE = 0.5324545
+mbe_amm3=mean(eto_amm3-eto_pm); mbe_amm3 #MBE = -1.25e-05
+numerador_amm3 <- sum((eto_pm - eto_amm3)^2)
+denominador_amm3 <- sum((abs(eto_amm3 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm3 <- 1 - (numerador_amm3 / denominador_amm3); d_amm3 #d = 0.9366975
+sd_amm3=sd(eto_amm3); sd_amm3
+
+
+## Gráfico com a linha de regressão
+ggplot(dados_fase1, aes(x = ev_amm3, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM3 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm3, 2), 
+                          " + ", round(a_amm3, 2), "x\nR² = ", round(r2_amm3, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+
+## Estimativa de erro
+
+sd_amm3=sd(eto_amm3); sd_amm3
+edt_amm3=eto_pm-eto_amm3; edt_amm3
+edt_perc_amm3=(abs((eto_amm3-eto_pm)/eto_pm))*100; edt_perc_amm3 #percentagem de erro
+
+plot(tm, edt_perc_amm3)
+plot(ur, edt_perc_amm3) #observa-se que a maior diferença ocorre para valores de umidade relativa maiores
+plot(rs, edt_perc_amm3)
+plot(eto_pm, edt_perc_amm3)
+
+
+################################# Atmometro 4 #################################
+
+mod_amm4=lm(eto_pm ~ ev_amm4)
+summary(mod_amm4)
+
+b_amm4=1.51730
+a_amm4 = 0.36236 
+r2_amm4 = 0.8384
+
+eto_amm4=b_amm4+a_amm4*ev_amm4; list(eto_amm4) #modelo p/ amm1 (ETo-PM vs EV-AMM2)
+
+
+## Indicadores
+
+rmse_amm4 <- sqrt(mean((eto_pm - eto_amm4)^2)); rmse_amm4 #RMSE = 0.4581222
+mbe_amm4=mean(eto_amm4-eto_pm); mbe_amm4 #MBE = 2.479048e-05
+numerador_amm4 <- sum((eto_pm - eto_amm4)^2)
+denominador_amm4 <- sum((abs(eto_amm4 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm4 <- 1 - (numerador_amm4 / denominador_amm4); d_amm4 #d = 0.9553413
+sd_amm4=sd(eto_amm4); sd_amm4
+
+
+# Gráfico com a linha de regressão
+
+ggplot(dados_fase1, aes(x = ev_amm4, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM4 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm4, 2), 
+                          " + ", round(a_amm4, 2), "x\nR² = ", round(r2_amm4, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+## Estimativa de erro
+
+sd_amm4=sd(eto_amm4); sd_amm4
+edt_amm4=eto_pm-eto_amm4; edt_amm4
+edt_perc_amm4=(abs((eto_amm4-eto_pm)/eto_pm))*100; edt_perc_amm4 #percentagem de erro
+
+plot(tm, edt_perc_amm4)
+plot(ur, edt_perc_amm4) #observa-se que a maior diferença ocorre para valores de umidade relativa maiores
+plot(rs, edt_perc_amm4)
+plot(eto_pm, edt_perc_amm4)
+
+
+################################# Atmometro 5 #################################
+
+mod_amm5=lm(eto_pm ~ ev_amm5)
+summary(mod_amm5)
+
+b_amm5=1.40353
+a_amm5 = 0.38308
+r2_amm5 = 0.8325 
+
+eto_amm5=b_amm5+a_amm5*ev_amm5; eto_amm5=round(eto_amm5, 2); list(eto_amm5) #modelo p/ amm1 (ETo-PM vs EV-AMM2)
+
+
+## Indicadores
+
+rmse_amm5 <- sqrt(mean((eto_pm - eto_amm5)^2)); rmse_amm5 #RMSE = 0.4666624
+mbe_amm5=mean(eto_amm5-eto_pm); mbe_amm5 #MBE = -0.0002380952
+numerador_amm5 <- sum((eto_pm - eto_amm5)^2)
+denominador_amm5 <- sum((abs(eto_amm5 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm5 <- 1 - (numerador_amm5 / denominador_amm5); d_amm5 #d = 0.9536296
+sd_amm5=sd(eto_amm5); sd_amm5
+
+
+# Gráfico com a linha de regressão
+
+ggplot(dados_fase1, aes(x = ev_amm5, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM5 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm5, 2), 
+                          " + ", round(a_amm5, 2), "x\nR² = ", round(r2_amm5, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+## Estimativa de erro
+
+sd_amm5=sd(eto_amm5); sd_amm5
+edt_amm5=eto_pm-eto_amm5; edt_amm5
+edt_perc_amm5=(abs((eto_amm5-eto_pm)/eto_pm))*100; edt_perc_amm5 #percentagem de erro
+
+plot(tm, edt_perc_amm5)
+plot(ur, edt_perc_amm5) #observa-se que a maior diferença ocorre para valores de umidade relativa maiores
+plot(rs, edt_perc_amm5)
+plot(eto_pm, edt_perc_amm5)
+
+
+################################# Atmometro 6 #################################
+
+mod_amm6=lm(eto_pm ~ ev_amm6)
+summary(mod_amm6)
+
+b_amm6=1.39382
+a_amm6 = 0.36353
+r2_amm6 = 0.8025 
+
+eto_amm6=b_amm6+a_amm6*ev_amm6; eto_amm6=round(eto_amm6, 2); list(eto_amm6) #modelo p/ amm1 (ETo-PM vs EV-AMM2)
+
+
+## Indicadores
+
+rmse_amm6 <- sqrt(mean((eto_pm - eto_amm6)^2)); rmse_amm6 #RMSE = 0.5060209
+mbe_amm6=mean(eto_amm6-eto_pm); mbe_amm6 #MBE = -0.032
+numerador_amm5 <- sum((eto_pm - eto_amm5)^2)
+denominador_amm5 <- sum((abs(eto_amm5 - mean(eto_pm)) + abs(eto_pm - mean(eto_pm)))^2)
+d_amm5 <- 1 - (numerador_amm5 / denominador_amm5); d_amm5 #d = 0.95
+sd_amm6=sd(eto_amm6); sd_amm6
+
+
+# Gráfico com a linha de regressão
+
+ggplot(dados_fase1, aes(x = ev_amm6, y = eto_pm)) +
+  geom_point(color = "black", size = 4, shape = 17) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", size = 1) +
+  labs(x = "EV-AMM6 (mm dia⁻¹)", 
+       y = "ETo-PM (mm dia⁻¹)") +
+  xlim(2, 16) + ylim(2, 16) +
+  theme_minimal() +
+  annotate("text", x = 2.2, y = 15.5,  # posição segura dentro dos limites
+           label = paste0("y = ", round(b_amm6, 2), 
+                          " + ", round(a_amm6, 2), "x\nR² = ", round(r2_amm6, 2)),
+           size = 6, color = "black", hjust = 0, vjust = 1) +
+  theme(
+    text = element_text(family = "Arial", size = 20),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(size = 16),
+    axis.title.x = element_text(face = "bold"), 
+    axis.title.y = element_text(face = "bold")
+  )
+
+
+## Estimativa de erro
+
+sd_amm6=sd(eto_amm6); sd_amm6
+edt_amm6=eto_pm-eto_amm6; edt_amm6
+edt_perc_amm6=(abs((eto_amm6-eto_pm)/eto_pm))*100; edt_perc_amm6 #percentagem de erro
+
+plot(tm, edt_perc_amm6)
+plot(ur, edt_perc_amm6) #observa-se que a maior diferença ocorre para valores de umidade relativa maiores
+plot(rs, edt_perc_amm6)
+plot(eto_pm, edt_perc_amm6)
+
+
+#################### Diferenças diárias de ETo-PM & ETo-AMM ####################
+################################################################################
+
+edt_amm1=eto_pm-eto_amm1; edt_amm1
+edt_amm2=eto_pm-eto_amm2; edt_amm2
+edt_amm3=eto_pm-eto_amm3; edt_amm3
+edt_amm4=eto_pm-eto_amm4; edt_amm4
+edt_amm5=eto_pm-eto_amm5; edt_amm5
+edt_amm6=eto_pm-eto_amm6; edt_amm6
+
+relative_error=c(edt_amm1,edt_amm2,edt_amm3,edt_amm4,edt_amm5,edt_amm6)
+
+relative_error=data.frame(error=c(edt_amm1,edt_amm2,edt_amm3,edt_amm4,edt_amm5,edt_amm6),
+                          amm=c(rep("AMM1",42), rep("AMM2",42), rep("AMM3",42), rep("AMM4",42), rep("AMM5",42), rep("AMM6",42)))
+
+amm=relative_error$amm; amm=factor(amm)
+
+
+library(ggplot2)
+
+# Criando um índice para representar a ordem das observações
+relative_error$Ordem <- rep(1:42, times = 6)
+
+# Criando o gráfico
+ggplot(relative_error, aes(x = Ordem, y = error, shape = amm, color = amm)) +
+  geom_point(size = 4) +  # Adiciona pontos com diferentes formas para cada AMM
+  geom_line(aes(group = amm), linewidth = 0.8, alpha = 0.6) +  # Adiciona linhas conectando os pontos de cada AMM
+  scale_x_continuous(breaks = seq(1, 42, by = 2)) +  # Define os rótulos no eixo X
+  scale_shape_manual(values = c(0, 5, 2, 16, 19, 17)) +  # Define diferentes símbolos para cada AMM
+  xlab("Ordem das Observações") +
+  ylab("Erro Relativo (mm/dia)") +
+  theme_classic() +  # Remove fundo e mantém apenas os eixos visíveis
+  theme(
+    axis.line = element_line(color = "black", linewidth = 1),  # Deixa os eixos X e Y bem visíveis
+    panel.grid = element_blank(),  # Remove as linhas de grade do fundo
+    legend.title = element_blank()  # Remove título da legenda
+  ) +
+  expand_limits(y = 0)  # Garante que o valor 0 esteja no eixo Y
+
+
+
+#################### Analise de Regressão (multipla) MEDIA EV ####################
+################################################################################
+
+################################## MEDIA ###################################
+
+##Testes dos diferentes modelos possiveis
+##NB: Importante destacar que o modelo incluindo RS não é relevante porque é uma variável dificil de medir
+
+### Considerando MÉDIA dos TRÊS atmômetros
+
+ev_mean=(ev_amm1+ev_amm2+ev_amm3+ev_amm4+ev_amm5+ev_amm6)/6; ev_mean=round(ev_mean,2)
+ev_mean
+ 
+############################## MODELO LINEAR (EV) ###################################
+
+mod_ev_mean=lm(eto_pm ~ ev_mean) ##modelo de regressão linear
+summary(mod_ev_mean) 
+b_ev_mean = 1.43695
+a_ev_mean = 0.37014 
+r2_ev_mean = 0.8199 
+
+eto_ev_mean=b_ev_mean+a_ev_mean*ev_mean; eto_ev_mean=round(eto_ev_mean,2); eto_ev_mean
+
+## Indicadores
+
+rmse_eto_ev_mean <- sqrt(mean((eto_pm - eto_ev_mean)^2)); rmse_eto_ev_mean #RMSE = 0.483174
+mbe_eto_ev_mean=mean(eto_ev_mean-eto_pm); mbe_eto_ev_mean #MBE = 0.000952381
+numerador_eto_ev_mean <- sum((eto_pm - eto_ev_mean)^2, na.rm = TRUE)
+denominador_eto_ev_mean <- sum((abs(eto_ev_mean - mean(eto_pm, na.rm = TRUE)) + 
+                               abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_mean <- 1 - (numerador_eto_ev_mean / denominador_eto_ev_mean); d_eto_ev_mean #d = 0.9495636
+
+
+########################### Modelo MULTIPLO (EV + TM) ##########################
+
+mod_ev_mean_tm=lm(eto_pm ~ ev_mean + tm) ##modelo de regressão multipla (ev_amm1 + tm)
+summary(mod_ev_mean_tm) 
+b_ev_mean_tm = 1.01321 
+a1_ev_mean_tm = 0.36327 
+a2_ev_mean_tm = 0.02056 
+r2_ev_mean_tm = 0.8168
+
+
+eto_ev_mean_tm=b_ev_mean_tm+a1_ev_mean_tm*ev_mean+a2_ev_mean_tm*tm; eto_ev_mean_tm=round(eto_ev_mean_tm,2); eto_ev_mean_tm
+
+## Indicadores
+
+rmse_eto_ev_mean_tm <- sqrt(mean((eto_pm - eto_ev_mean_tm)^2)); rmse_eto_ev_mean_tm #RMSE = 0.4808821
+mbe_eto_ev_mean_tm=mean(eto_ev_mean_tm-eto_pm); mbe_eto_ev_mean_tm #MBE = -0.000952381
+numerador_eto_ev_mean_tm <- sum((eto_pm - eto_ev_mean_tm)^2, na.rm = TRUE)
+denominador_eto_ev_mean_tm <- sum((abs(eto_ev_mean_tm - mean(eto_pm, na.rm = TRUE)) + 
+                               abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_mean_tm <- 1 - (numerador_eto_ev_mean_tm / denominador_eto_ev_mean_tm); d_eto_ev_mean_tm #d = 0.949694
+
+
+## Modelo MULTIPLO (EV + UR)
+
+mod_ev_mean_ur=lm(eto_pm ~ ev_mean + ur) ##modelo de regressão multipla (ev_amm1 + ur)
+summary(mod_ev_mean_ur) 
+b_ev_mean_ur = 1.998978 
+a1_ev_mean_ur = 0.350136 
+a3_ev_mean_ur = -0.005594 
+r2_ev_mean_ur = 0.8162
+
+
+eto_ev_mean_ur=b_ev_mean_ur+a1_ev_mean_ur*ev_mean-a3_ev_mean_ur*ur; eto_ev_mean_ur=round(eto_ev_mean_ur,2); eto_ev_mean_ur
+
+## Indicadores
+
+rmse_eto_ev_mean_ur <- sqrt(mean((eto_pm - eto_ev_mean_ur)^2)); rmse_eto_ev_mean_ur #RMSE = 0.4818318
+mbe_eto_ev_mean_ur=mean(eto_ev_mean_ur-eto_pm); mbe_eto_ev_mean_ur #MBE = 2.642533e-17
+numerador_eto_ev_mean_ur <- sum((eto_pm - eto_ev_mean_ur)^2, na.rm = TRUE)
+denominador_eto_ev_mean_ur <- sum((abs(eto_ev_mean_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                  abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_mean_ur <- 1 - (numerador_eto_ev_mean_ur / denominador_eto_ev_mean_ur); d_eto_ev_mean_ur #d = 0.9498066
+
+
+## Modelo MULTIPLO (EV + Rs)
+
+mod_ev_mean_rs=lm(eto_pm ~ ev_mean + rs) ##modelo de regressão multipla (ev_amm1 + rs)
+summary(mod_ev_mean_rs) 
+b_ev_mean_rs =  0.26991  
+a1_ev_mean_rs = 0.10898 
+a4_ev_mean_rs = 0.14404 
+r2_ev_mean_rs = 0.9402 
+
+
+eto_ev_mean_rs=b_ev_mean_rs+a1_ev_mean_rs*ev_mean+a4_ev_mean_rs*rs; eto_ev_mean_rs=round(eto_ev_mean_rs,2); eto_ev_mean_rs
+
+# Indicadores
+
+rmse_eto_ev_mean_rs <- sqrt(mean((eto_pm - eto_ev_mean_rs)^2)); rmse_eto_ev_mean_rs #RMSE = 0.2744692
+mbe_eto_ev_mean_rs=mean(eto_ev_mean_rs-eto_pm); mbe_eto_ev_mean_rs #MBE = 5.299683e-18
+numerador_eto_ev_mean_rs <- sum((eto_pm - eto_ev_mean_rs)^2, na.rm = TRUE)
+denominador_eto_ev_mean_rs <- sum((abs(eto_ev_mean_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                  abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_mean_rs <- 1 - (numerador_eto_ev_mean_rs / denominador_eto_ev_mean_rs); d_eto_ev_mean_rs #d = 0.9852275
+
+
+################################## Atmometro 1 ###################################
+
+## Modelo (EV + TM)
+
+mod_amm1_tm=lm(eto_pm~ev_amm1 + tm)
+summary(mod_amm1_tm) 
+b_amm1_tm = 0.26225 
+a1_amm1_tm = 0.29257
+a2_amm1_tm = 0.08020  
+r2_amm1_tm = 0.652 
+
+eto_ev_amm1_tm=b_amm1_tm+a1_amm1_tm*ev_amm1+a2_amm1_tm*tm
+
+## Indicadores
+
+rmse_eto_ev_amm1_tm <- sqrt(mean((eto_pm - eto_ev_amm1_tm)^2)); rmse_eto_ev_amm1_tm #RMSE = 0.6867237
+mbe_eto_ev_amm1_tm=mean(eto_ev_amm1_tm-eto_pm); mbe_eto_ev_amm1_tm #MBE = 3.141429e-05
+numerador_eto_ev_amm1_tm <- sum((eto_pm - eto_ev_amm1_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm1_tm <- sum((abs(eto_ev_amm1_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                  abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm1_tm <- 1 - (numerador_eto_ev_amm1_tm / denominador_eto_ev_amm1_tm); d_eto_ev_amm1_tm #d = 0.8840279
+sd_eto_ev_amm1_tm=sd(eto_ev_amm1_tm); sd_eto_ev_amm1_tm
+
+## Modelo (EV + UR)
+
+mod_amm1_ur=lm(eto_pm~ev_amm1 + ur)
+summary(mod_amm1_ur) #b = 5.75725*** a1 = 0.18601** a2 = -0.03904* R^2 = 0.6858 
+#Nota: Nesto modelo o erro é significativo
+
+eto_ev_amm1_ur=5.75725+0.18601*ev_amm1-0.03904*ur
+
+rmse_eto_ev_amm1_ur <- sqrt(mean((eto_pm - eto_ev_amm1_ur)^2)); rmse_eto_ev_amm1_ur #RMSE = 0.6307093
+
+mbe_eto_ev_amm1_ur=mean(eto_ev_amm1_ur-eto_pm); mbe_eto_ev_amm1_ur #MBE = 0.0001971667
+
+numerador_eto_ev_amm1_ur <- sum((eto_pm - eto_ev_amm1_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm1_ur <- sum((abs(eto_ev_amm1_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm1_ur <- 1 - (numerador_eto_ev_amm1_ur / denominador_eto_ev_amm1_ur); d_eto_ev_amm1_ur #d = 0.8840279
+
+
+## Modelo (EV + RS)
+
+mod_amm1_rs=lm(eto_pm~ev_amm1 + rs)
+summary(mod_amm1_rs) #b = 0.13710 a1 = 0.03610 a4 = 0.17597 R"2 = 0.9266
+
+eto_ev_amm1_rs=0.13710+0.03610*ev_amm1+0.17597*rs
+
+rmse_eto_ev_amm1_rs <- sqrt(mean((eto_pm - eto_ev_amm1_rs)^2)); rmse_eto_ev_amm1_rs #RMSE = 0.6307093
+
+mbe_eto_ev_amm1_rs=mean(eto_ev_amm1_rs-eto_pm); mbe_eto_ev_amm1_rs #MBE = 3.482619e-05
+
+numerador_eto_ev_amm1_rs <- sum((eto_pm - eto_ev_amm1_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm1_rs <- sum((abs(eto_ev_amm1_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm1_rs <- 1 - (numerador_eto_ev_amm1_rs / denominador_eto_ev_amm1_rs); d_eto_ev_amm1_rs #d = 
+
+
+################################## Atmometro 2 ###################################
+
+##Modelo (EV + TM)
+
+mod_amm2_tm=lm(eto_pm~ev_amm2 + tm)
+summary(mod_amm2_tm) #b = 1.633333 a1 = 0.326114*** a2 = 0.001219 R^2 = 0.7879  
+
+eto_ev_amm2_tm=1.633333+0.326114*ev_amm2+0.001219*tm
+
+rmse_eto_ev_amm2_tm <- sqrt(mean((eto_pm - eto_ev_amm2_tm)^2)); rmse_eto_ev_amm2_tm #RMSE = 0.5182248
+
+mbe_eto_ev_amm2_tm=mean(eto_ev_amm2_tm-eto_pm); mbe_eto_ev_amm2_tm #MBE = -8.302857e-06
+
+numerador_eto_ev_amm2_tm <- sum((eto_pm - eto_ev_amm2_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm2_tm <- sum((abs(eto_ev_amm2_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm2_tm <- 1 - (numerador_eto_ev_amm2_tm / denominador_eto_ev_amm2_tm); d_eto_ev_amm2_tm #d = 0.9412156
+
+
+###Modelo (EV + UR)
+
+mod_amm2_ur=lm(eto_pm~ev_amm2 + ur)
+summary(mod_amm2_ur) #b = 2.565829 a1 = 0.296985 a3 = -0.009182
+
+
+eto_ev_amm2_ur=2.565829+0.296985*ev_amm2-0.009182*ur
+
+rmse_eto_ev_amm2_ur <- sqrt(mean((eto_pm - eto_ev_amm2_ur)^2)); rmse_eto_ev_amm2_ur #RMSE = 0.5151314
+
+mbe_eto_ev_amm2_ur=mean(eto_ev_amm2_ur-eto_pm); mbe_eto_ev_amm2_ur #MBE = 0.0001971667
+
+numerador_eto_ev_amm2_ur <- sum((eto_pm - eto_ev_amm2_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm2_ur <- sum((abs(eto_ev_amm2_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm2_ur <- 1 - (numerador_eto_ev_amm2_ur / denominador_eto_ev_amm2_ur); d_eto_ev_amm2_ur #d = 0.8840279
+
+
+Modelo (EV + RS)
+
+mod_amm2_rs=lm(eto_pm~ev_amm2 + rs)
+summary(mod_amm2_rs)#b = 0.28975 a1 = 0.10004 a4 = 0.14469
+
+eto_ev_amm2_rs=0.28975+0.10004*ev_amm2+0.14469*rs
+
+rmse_eto_ev_amm2_rs <- sqrt(mean((eto_pm - eto_ev_amm2_rs)^2)); rmse_eto_ev_amm2_rs #RMSE = 0.6307093
+
+mbe_eto_ev_amm2_rs=mean(eto_ev_amm2_rs-eto_pm); mbe_eto_ev_amm2_rs #MBE = 3.482619e-05
+
+numerador_eto_ev_amm2_rs <- sum((eto_pm - eto_ev_amm2_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm2_rs <- sum((abs(eto_ev_amm2_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm2_rs <- 1 - (numerador_eto_ev_amm2_rs / denominador_eto_ev_amm2_rs); d_eto_ev_amm2_rs #d = 
+
+
+################################## Atmometro 3 ###################################
+
+
+##Modelo (EV + TM)
+
+mod_amm3_tm=lm(eto_pm~ev_amm3 + tm)
+summary(mod_amm3_tm) #b = 0.34426 a1 = 0.35482*** a2 = 0.05329 R^2 = 0.7867  
+
+eto_ev_amm3_tm=0.34426+0.35482*ev_amm3+0.05329*tm
+
+rmse_eto_ev_amm3_tm <- sqrt(mean((eto_pm - eto_ev_amm3_tm)^2)); rmse_eto_ev_amm3_tm #RMSE = 
+
+mbe_eto_ev_amm3_tm=mean(eto_ev_amm3_tm-eto_pm); mbe_eto_ev_amm3_tm #MBE = 
+
+numerador_eto_ev_amm3_tm <- sum((eto_pm - eto_ev_amm3_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm3_tm <- sum((abs(eto_ev_amm3_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm3_tm <- 1 - (numerador_eto_ev_amm3_tm / denominador_eto_ev_amm3_tm); d_eto_ev_amm3_tm #d = 
+
+
+###Modelo (EV + UR)
+
+mod_amm3_ur=lm(eto_pm~ev_amm3 + ur)
+summary(mod_amm3_ur) #b = 3.58205 a1 = 0.29685 a3 = -0.02139
+
+
+eto_ev_amm3_ur=3.58205+0.29685*ev_amm3-0.02139*ur
+
+rmse_eto_ev_amm3_ur <- sqrt(mean((eto_pm - eto_ev_amm3_ur)^2)); rmse_eto_ev_amm3_ur #RMSE = 
+
+mbe_eto_ev_amm3_ur=mean(eto_ev_amm3_ur-eto_pm); mbe_eto_ev_amm2_ur #MBE = 
+
+numerador_eto_ev_amm3_ur <- sum((eto_pm - eto_ev_amm3_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm3_ur <- sum((abs(eto_ev_amm3_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm3_ur <- 1 - (numerador_eto_ev_amm3_ur / denominador_eto_ev_amm3_ur); d_eto_ev_amm3_ur #d = 0.8840279
+
+
+Modelo (EV + RS)
+
+mod_amm3_rs=lm(eto_pm~ev_amm3 + rs)
+summary(mod_amm3_rs) #b = 0.20513 a1 = 0.08443 a4 = 0.15581
+
+eto_ev_amm3_rs=0.20513+0.08443*ev_amm3+0.15581*rs
+
+rmse_eto_ev_amm3_rs <- sqrt(mean((eto_pm - eto_ev_amm3_rs)^2)); rmse_eto_ev_amm3_rs #RMSE = 
+
+mbe_eto_ev_amm3_rs=mean(eto_ev_amm3_rs-eto_pm); mbe_eto_ev_amm3_rs #MBE = 3.482619e-05
+
+numerador_eto_ev_amm3_rs <- sum((eto_pm - eto_ev_amm3_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm3_rs <- sum((abs(eto_ev_amm3_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm3_rs <- 1 - (numerador_eto_ev_amm3_rs / denominador_eto_ev_amm3_rs); d_eto_ev_amm3_rs #d = 
+
+
+################################## Atmometro 4 ###################################
+
+
+
+##Modelo (EV + TM)
+
+mod_amm4_tm=lm(eto_pm~ev_amm4 + tm)
+summary(mod_amm4_tm) #b = 1.30613 a1 = 0.358932*** a2 =  R^2 = 0.8346   
+
+eto_ev_amm4_tm=1.30613+0.35893*ev_amm4+0.01024*tm
+
+rmse_eto_ev_amm4_tm <- sqrt(mean((eto_pm - eto_ev_amm4_tm)^2)); rmse_eto_ev_amm4_tm #RMSE = 
+
+mbe_eto_ev_amm4_tm=mean(eto_ev_amm4_tm-eto_pm); mbe_eto_ev_amm4_tm #MBE = 
+
+numerador_eto_ev_amm4_tm <- sum((eto_pm - eto_ev_amm4_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm4_tm <- sum((abs(eto_ev_amm4_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm4_tm <- 1 - (numerador_eto_ev_amm4_tm / denominador_eto_ev_amm4_tm); d_eto_ev_amm4_tm #d = 
+
+
+###Modelo (EV + UR)
+
+mod_amm4_ur=lm(eto_pm~ev_amm4 + ur)
+summary(mod_amm4_ur) #b = 1.632476 a1 = 0.29685 a3 = -0.02139
+
+
+eto_ev_amm4_ur=1.632476+0.358329*ev_amm4-0.001157*ur
+
+rmse_eto_ev_amm4_ur <- sqrt(mean((eto_pm - eto_ev_amm4_ur)^2)); rmse_eto_ev_amm4_ur #RMSE = 
+
+mbe_eto_ev_amm4_ur=mean(eto_ev_amm4_ur-eto_pm); mbe_eto_ev_amm4_ur #MBE = 
+
+numerador_eto_ev_amm4_ur <- sum((eto_pm - eto_ev_amm4_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm4_ur <- sum((abs(eto_ev_amm4_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm4_ur <- 1 - (numerador_eto_ev_amm4_ur / denominador_eto_ev_amm4_ur); d_eto_ev_amm4_ur #d = 0.8840279
+
+
+Modelo (EV + RS)
+
+mod_amm4_rs=lm(eto_pm~ev_amm4 + rs)
+summary(mod_amm4_rs) #b = 0.33718 a1 = 0.11847 a4 = 0.13799  R^2 = 0.9436 
+
+eto_ev_amm4_rs=0.33718+0.11847*ev_amm4+0.13799*rs
+
+rmse_eto_ev_amm4_rs <- sqrt(mean((eto_pm - eto_ev_amm4_rs)^2)); rmse_eto_ev_amm4_rs #RMSE = 
+
+mbe_eto_ev_amm4_rs=mean(eto_ev_amm4_rs-eto_pm); mbe_eto_ev_amm4_rs #MBE = 
+
+numerador_eto_ev_amm4_rs <- sum((eto_pm - eto_ev_amm4_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm4_rs <- sum((abs(eto_ev_amm4_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm4_rs <- 1 - (numerador_eto_ev_amm4_rs / denominador_eto_ev_amm4_rs); d_eto_ev_amm4_rs #d = 
+
+
+################################# Atmometro 5 ##################################
+
+
+##Modelo (EV + TM)
+
+mod_amm5_tm=lm(eto_pm~ev_amm5 + tm)
+summary(mod_amm5_tm) #b = 1.16837 a1 = 0.37901*** a2 = 0.01147 R^2 = 0.8286  
+
+eto_ev_amm5_tm=1.16837+0.37901*ev_amm5+0.01147*tm
+
+rmse_eto_ev_amm5_tm <- sqrt(mean((eto_pm - eto_ev_amm5_tm)^2)); rmse_eto_ev_amm5_tm #RMSE = 
+
+mbe_eto_ev_amm5_tm=mean(eto_ev_amm5_tm-eto_pm); mbe_eto_ev_amm5_tm #MBE = 
+
+numerador_eto_ev_amm5_tm <- sum((eto_pm - eto_ev_amm5_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm5_tm <- sum((abs(eto_ev_amm5_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm5_tm <- 1 - (numerador_eto_ev_amm5_tm / denominador_eto_ev_amm5_tm); d_eto_ev_amm5_tm #d = 
+
+
+###Modelo (EV + UR)
+
+mod_amm5_ur=lm(eto_pm~ev_amm5 + ur)
+summary(mod_amm5_ur) #b = 2.000061 a1 = 0.361450 a3 = -0.005946 R^ = 0.8293 
+
+
+eto_ev_amm5_ur=2.000061+0.361450*ev_amm5-0.005946*ur
+
+rmse_eto_ev_amm5_ur <- sqrt(mean((eto_pm - eto_ev_amm5_ur)^2)); rmse_eto_ev_amm5_ur #RMSE = 
+
+mbe_eto_ev_amm5_ur=mean(eto_ev_amm5_ur-eto_pm); mbe_eto_ev_amm5_ur #MBE = 
+
+numerador_eto_ev_amm5_ur <- sum((eto_pm - eto_ev_amm5_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm5_ur <- sum((abs(eto_ev_amm5_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm5_ur <- 1 - (numerador_eto_ev_amm5_ur / denominador_eto_ev_amm5_ur); d_eto_ev_amm5_ur #d = 0.8840279
+
+
+Modelo (EV + RS)
+
+mod_amm5_rs=lm(eto_pm~ev_amm5 + rs)
+summary(mod_amm5_rs) #b = 0.28623 a1 = 0.11970 a4 = 0.14050  R^2 =  
+
+eto_ev_amm5_rs=0.28623+0.11970*ev_amm5+0.14050*rs
+
+rmse_eto_ev_amm5_rs <- sqrt(mean((eto_pm - eto_ev_amm5_rs)^2)); rmse_eto_ev_amm5_rs #RMSE = 
+
+mbe_eto_ev_amm5_rs=mean(eto_ev_amm5_rs-eto_pm); mbe_eto_ev_amm5_rs #MBE = 
+
+numerador_eto_ev_amm5_rs <- sum((eto_pm - eto_ev_amm5_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm5_rs <- sum((abs(eto_ev_amm5_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm5_rs <- 1 - (numerador_eto_ev_amm5_rs / denominador_eto_ev_amm5_rs); d_eto_ev_amm5_rs #d = 
+
+
+################################# Atmometro 6 ##################################
+
+
+##Modelo (EV + TM)
+
+mod_amm6_tm=lm(eto_pm~ev_amm6 + tm)
+summary(mod_amm6_tm) #b = 0.97814 a1 = 0.35673*** a2 = 0.02027 R^2 =  
+
+eto_ev_amm6_tm=0.97814+0.35673*ev_amm6+0.02027*tm
+
+rmse_eto_ev_amm6_tm <- sqrt(mean((eto_pm - eto_ev_amm6_tm)^2)); rmse_eto_ev_amm6_tm #RMSE = 
+
+mbe_eto_ev_amm6_tm=mean(eto_ev_amm6_tm-eto_pm); mbe_eto_ev_amm6_tm #MBE = 
+
+numerador_eto_ev_amm6_tm <- sum((eto_pm - eto_ev_amm6_tm)^2, na.rm = TRUE)
+denominador_eto_ev_amm6_tm <- sum((abs(eto_ev_amm6_tm - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm6_tm <- 1 - (numerador_eto_ev_amm6_tm / denominador_eto_ev_amm6_tm); d_eto_ev_amm6_tm #d = 
+
+
+###Modelo (EV + UR)
+
+mod_amm6_ur=lm(eto_pm~ev_amm6 + ur)
+summary(mod_amm6_ur) #b = 3.05208 a1 = 0.30725 a3 = -0.01659 R^ = 0.8293 
+
+
+eto_ev_amm6_ur=3.05208+0.30725*ev_amm6-0.01659*ur
+
+rmse_eto_ev_amm6_ur <- sqrt(mean((eto_pm - eto_ev_amm6_ur)^2)); rmse_eto_ev_amm6_ur #RMSE = 
+
+mbe_eto_ev_amm6_ur=mean(eto_ev_amm6_ur-eto_pm); mbe_eto_ev_amm6_ur #MBE = 
+
+numerador_eto_ev_amm6_ur <- sum((eto_pm - eto_ev_amm6_ur)^2, na.rm = TRUE)
+denominador_eto_ev_amm6_ur <- sum((abs(eto_ev_amm6_ur - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm6_ur <- 1 - (numerador_eto_ev_amm6_ur / denominador_eto_ev_amm6_ur); d_eto_ev_amm6_ur #d = 0.8840279
+
+
+Modelo (EV + RS)
+
+mod_amm6_rs=lm(eto_pm~ev_amm6 + rs)
+summary(mod_amm6_rs) #b = 0.22661 a1 = 0.10511 a4 = 0.14613  R^2 =  
+
+eto_ev_amm6_rs=0.22661+0.10511*ev_amm6+0.14613*rs
+
+rmse_eto_ev_amm6_rs <- sqrt(mean((eto_pm - eto_ev_amm6_rs)^2)); rmse_eto_ev_amm6_rs #RMSE = 
+
+mbe_eto_ev_amm6_rs=mean(eto_ev_amm6_rs-eto_pm); mbe_eto_ev_amm6_rs #MBE = 
+
+numerador_eto_ev_amm6_rs <- sum((eto_pm - eto_ev_amm6_rs)^2, na.rm = TRUE)
+denominador_eto_ev_amm6_rs <- sum((abs(eto_ev_amm6_rs - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm6_rs <- 1 - (numerador_eto_ev_amm6_rs / denominador_eto_ev_amm6_rs); d_eto_ev_amm6_rs #d = 
+
+
+################################################################################
+################# Modelo Alternativo p Rs "Hargreaves-Samani" ##################
+
+library(tidyverse)
+df_rs = read_excel("~/UNESP/Tese/Redacao_tese/TESE_GERAL/Defesa_FINAL/Analise_dados/Cap_3/10022026_Modelos_Radiacao_Global.xlsx", 
+                  sheet = "Calibracao_Modelos_Rs"); df_rs
+
+df_rs = df_rs %>%
+  mutate(
+    dT = df_rs$Tmax - df_rs$Tmin,
+    Ratio = df_rs$Rs/df_rs$Ra
+  )
+
+rs_mod <- nls(Ratio ~ a * (dT^b), 
+                        data = df_rs,
+                        start = list(a = 0.08, b = 0.78))
+
+# Extrair coeficientes
+a_cal <- coef(rs_mod)[1]; a_cal # a = 0.09391172
+b_cal <- coef(rs_mod)[2]; b_cal # b = 0.7306193
+
+df_rs = df_rs%>%
+  mutate(Rs_est = a_cal * Ra * (dT^b_cal))
+
+# 6. Cálculo das Métricas Estatísticas
+n_Rs_est <- nrow(df_rs); n_Rs_est
+rmse_Rs_est = sqrt(mean((df_rs$Rs - df_rs$Rs_est)^2)); rmse_Rs_est # rmse = 4.460779
+mbe_Rs_est = mean(df_rs$Rs_est - df_rs$Rs); mbe_Rs_est; # mbe = 0.008268451
+r2_Rs_est = cor(df_rs$Rs, df_rs$Rs_est)^2; r2_Rs_est; # r2 = 0.4189922
+
+numerador_Rs_est <- sum((df_rs$Rs - df_rs$Rs_est)^2, na.rm = TRUE)
+denominador_Rs_est <- sum((abs(df_rs$Rs_est - mean(df_rs$Rs, na.rm = TRUE)) + 
+                                     abs(df_rs$Rs - mean(df_rs$Rs, na.rm = TRUE)))^2, na.rm = TRUE)
+d__Rs_est <- 1 - (numerador_Rs_est / denominador_Rs_est); d__Rs_est #d = 0.7560965
+
+
+
+## Modelo (EV_AMM1 + Rs_est)
+
+eto_pm
+ev_amm1
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm1_Rs_est1=lm(eto_pm~ev_amm1 + Rs_est)
+summary(mod_amm1_Rs_est1) 
+
+a_rs_est1 = -0.61075; a_rs_est1
+b_rs_est1 = 0.23718; b_rs_est1
+c_rs_est1 = 0.14272; c_rs_est1
+
+
+
+eto_ev_amm1_rs_est1=a_rs_est1+b_rs_est1*ev_amm1+c_rs_est1*Rs_est
+
+rmse_eto_ev_amm1_rs_est1 <- sqrt(mean((eto_pm - eto_ev_amm1_rs_est1)^2)); rmse_eto_ev_amm1_rs_est1 
+
+mbe_eto_ev_amm1_rs_est1=mean(eto_ev_amm1_rs_est1-eto_pm); mbe_eto_ev_amm1_rs_est1 #MBE = 
+
+numerador_eto_ev_amm1_rs_est1 <- sum((eto_pm - eto_ev_amm1_rs_est1)^2, na.rm = TRUE)
+denominador_eto_ev_amm1_rs_est1 <- sum((abs(eto_ev_amm1_rs_est1 - mean(eto_pm, na.rm = TRUE)) + 
+                                     abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm1_rs_est1 <- 1 - (numerador_eto_ev_amm1_rs_est1 / denominador_eto_ev_amm1_rs_est1); d_eto_ev_amm1_rs_est1 #d = 
+
+
+
+## Modelo (EV_AMM2 + Rs_est)
+
+eto_pm
+ev_amm2
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm1_Rs_est2=lm(eto_pm~ev_amm2 + Rs_est)
+summary(mod_amm1_Rs_est2) 
+
+a_rs_est2 = -0.07848; a_rs_est2
+b_rs_est2 = 0.26247; b_rs_est2
+c_rs_est2 = 0.10231; c_rs_est2
+
+
+
+eto_ev_amm2_rs_est2=a_rs_est2+b_rs_est2*ev_amm2+c_rs_est2*Rs_est
+
+rmse_eto_ev_amm2_rs_est2 <- sqrt(mean((eto_pm - eto_ev_amm2_rs_est2)^2)); rmse_eto_ev_amm2_rs_est2 
+
+mbe_eto_ev_amm2_rs_est2=mean(eto_ev_amm2_rs_est2-eto_pm); mbe_eto_ev_amm2_rs_est2 #MBE = 
+
+numerador_eto_ev_amm2_rs_est2 <- sum((eto_pm - eto_ev_amm2_rs_est2)^2, na.rm = TRUE)
+denominador_eto_ev_amm2_rs_est2 <- sum((abs(eto_ev_amm2_rs_est2 - mean(eto_pm, na.rm = TRUE)) + 
+                                          abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm2_rs_est2 <- 1 - (numerador_eto_ev_amm2_rs_est2 / denominador_eto_ev_amm2_rs_est2); d_eto_ev_amm2_rs_est2 #d = 
+
+
+
+
+## Modelo (EV_AMM3 + Rs_est)
+
+eto_pm
+ev_amm3
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm3_Rs_est3=lm(eto_pm~ev_amm3 + Rs_est)
+summary(mod_amm3_Rs_est3) 
+
+a_rs_est3 = -0.41557; a_rs_est3
+b_rs_est3 = 0.29551; b_rs_est3
+c_rs_est3 =  0.11117; c_rs_est3
+
+
+
+eto_ev_amm3_rs_est3=a_rs_est3+b_rs_est3*ev_amm3+c_rs_est3*Rs_est
+
+rmse_eto_ev_amm3_rs_est3 <- sqrt(mean((eto_pm - eto_ev_amm3_rs_est3)^2)); rmse_eto_ev_amm3_rs_est3 
+
+mbe_eto_ev_amm3_rs_est3=mean(eto_ev_amm3_rs_est3-eto_pm); mbe_eto_ev_amm3_rs_est3 #MBE = 
+
+numerador_eto_ev_amm3_rs_est3 <- sum((eto_pm - eto_ev_amm3_rs_est3)^2, na.rm = TRUE)
+denominador_eto_ev_amm3_rs_est3 <- sum((abs(eto_ev_amm3_rs_est3 - mean(eto_pm, na.rm = TRUE)) + 
+                                          abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm3_rs_est3 <- 1 - (numerador_eto_ev_amm3_rs_est3 / denominador_eto_ev_amm3_rs_est3); d_eto_ev_amm3_rs_est3 #d = 
+
+
+
+
+## Modelo (EV_AMM4 + Rs_est)
+
+eto_pm
+ev_amm4
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm4_Rs_est4=lm(eto_pm~ev_amm4 + Rs_est)
+summary(mod_amm4_Rs_est4) 
+
+a_rs_est4 = 0.06890; a_rs_est4
+b_rs_est4 = 0.29966; b_rs_est4
+c_rs_est4 =  0.08755; c_rs_est4
+
+
+
+eto_ev_amm4_rs_est4=a_rs_est4+b_rs_est4*ev_amm4+c_rs_est4*Rs_est
+
+rmse_eto_ev_amm4_rs_est4 <- sqrt(mean((eto_pm - eto_ev_amm4_rs_est4)^2)); rmse_eto_ev_amm4_rs_est4 
+
+mbe_eto_ev_amm4_rs_est4=mean(eto_ev_amm4_rs_est4-eto_pm); mbe_eto_ev_amm4_rs_est4 #MBE = 
+
+numerador_eto_ev_amm4_rs_est4 <- sum((eto_pm - eto_ev_amm4_rs_est4)^2, na.rm = TRUE)
+denominador_eto_ev_amm4_rs_est4 <- sum((abs(eto_ev_amm4_rs_est4 - mean(eto_pm, na.rm = TRUE)) + 
+                                          abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm4_rs_est4 <- 1 - (numerador_eto_ev_amm4_rs_est4 / denominador_eto_ev_amm4_rs_est4); d_eto_ev_amm4_rs_est4 #d = 
+
+
+
+
+## Modelo (EV_AMM5 + Rs_est)
+
+eto_pm
+ev_amm5
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm5_Rs_est5=lm(eto_pm~ev_amm5 + Rs_est)
+summary(mod_amm5_Rs_est5) 
+
+a_rs_est5 = -0.04160; a_rs_est5
+b_rs_est5 = 0.31585; b_rs_est5
+c_rs_est5 =  0.08862; c_rs_est5
+
+
+
+eto_ev_amm5_rs_est5=a_rs_est5+b_rs_est5*ev_amm5+c_rs_est5*Rs_est
+
+rmse_eto_ev_amm5_rs_est5 <- sqrt(mean((eto_pm - eto_ev_amm5_rs_est5)^2)); rmse_eto_ev_amm5_rs_est5 
+
+mbe_eto_ev_amm5_rs_est5=mean(eto_ev_amm5_rs_est5-eto_pm); mbe_eto_ev_amm5_rs_est5 #MBE = 
+
+numerador_eto_ev_amm5_rs_est5 <- sum((eto_pm - eto_ev_amm5_rs_est5)^2, na.rm = TRUE)
+denominador_eto_ev_amm5_rs_est5 <- sum((abs(eto_ev_amm5_rs_est5 - mean(eto_pm, na.rm = TRUE)) + 
+                                          abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm5_rs_est5 <- 1 - (numerador_eto_ev_amm5_rs_est5 / denominador_eto_ev_amm5_rs_est5); d_eto_ev_amm5_rs_est5 #d = 
+
+
+
+
+## Modelo (EV_AMM6 + Rs_est)
+
+eto_pm
+ev_amm6
+
+Ra = df_rs$Ra; Ra
+dT = df_rs$Tmax - df_rs$Tmin; dT
+Rs_est =  a_cal * Ra * (dT^b_cal); Rs_est
+
+mod_amm6_Rs_est6=lm(eto_pm~ev_amm6 + Rs_est)
+summary(mod_amm6_Rs_est6) 
+
+a_rs_est6 = -0.17763; a_rs_est6
+b_rs_est6 = 0.29448; b_rs_est6
+c_rs_est6 =  0.09633; c_rs_est6
+
+
+
+eto_ev_amm6_rs_est6=a_rs_est6+b_rs_est6*ev_amm6+c_rs_est6*Rs_est
+
+rmse_eto_ev_amm6_rs_est6 <- sqrt(mean((eto_pm - eto_ev_amm6_rs_est6)^2)); rmse_eto_ev_amm6_rs_est6 
+
+mbe_eto_ev_amm6_rs_est6=mean(eto_ev_amm6_rs_est6-eto_pm); mbe_eto_ev_amm6_rs_est6 #MBE = 
+
+numerador_eto_ev_amm6_rs_est6 <- sum((eto_pm - eto_ev_amm6_rs_est6)^2, na.rm = TRUE)
+denominador_eto_ev_amm6_rs_est6 <- sum((abs(eto_ev_amm6_rs_est6 - mean(eto_pm, na.rm = TRUE)) + 
+                                          abs(eto_pm - mean(eto_pm, na.rm = TRUE)))^2, na.rm = TRUE)
+d_eto_ev_amm6_rs_est6 <- 1 - (numerador_eto_ev_amm6_rs_est6 / denominador_eto_ev_amm6_rs_est6); d_eto_ev_amm6_rs_est6 #d = 
+
+
+
+
+
+
+
+
+
+################################################################################
+################################ Grafico Geral ################################
+
+##Base de Dados [coluna longa]
+dados_amm_eto=data.frame(x=c(ev_amm1,ev_amm2,ev_amm3,ev_amm4,ev_amm5,ev_amm6), y=c(eto_pm, eto_pm, eto_pm, eto_pm, eto_pm, eto_pm), trat=c(rep("AMM1", 42), rep("AMM2", 42), rep("AMM3", 42), rep("AMM4", 42), rep("AMM5", 42), rep("AMM6", 42))); dados_amm_eto
+
+
+x=dados_amm_eto$x; x=round(x,2); x #observações diárias de evaporação nos atmometros
+y=dados_amm_eto$y; y=round(y,2); y #observações diárias de Evapotranspiração de referência
+trat=dados_amm_eto$trat; trat #ID atmomestros
+
+
+# Definir os modelos e coeficientes de determinação (R²)
+modelos_reg <- c("AMM1" = "ETo = 1.97 + 0.31*EV", 
+                 "AMM2" = "ETo = 1.66 + 0.33*EV", 
+                 "AMM3" = "ETo = 1.46 + 0.37*EV", 
+                 "AMM4" = "ETo = 1.52 + 0.36*EV", 
+                 "AMM5" = "ETo = 1.40 + 0.38*EV", 
+                 "AMM6" = "ETo = 1.39 + 0.36*EV")
+
+coef_determinacao <- c("AMM1" = 0.64, "AMM2" = 0.79, "AMM3" = 0.78, 
+                       "AMM4" = 0.83, "AMM5" = 0.83, "AMM6" = 0.80)
+
+# Criar labels com modelos e coeficiente de determinação
+legend_labels <- paste0(names(modelos_reg), 
+                        "\n", modelos_reg, 
+                        "\nR² = ", round(coef_determinacao, 2))
+
+# Gráfico com a reta de regressão
+ggplot(dados_amm_eto, aes(x = x, y = y, fill = trat)) +
+  geom_point(size = 3.5, shape = 21) +  # Ponto com preenchimento colorido
+  geom_smooth(method = "lm", formula = y ~ x, color = "black", se = FALSE) +  # Adiciona reta de regressão
+  labs(x = "EV-AMM (mm/dia)", y = "ETo (mm/dia)") +
+  theme_classic() +  # Estilo limpo
+  theme(
+    text = element_text(family = "Arial", size = 12, color="black"),
+    axis.title.x = element_text(family = "Arial", size = 12, color="black"),
+    axis.title.y = element_text(family = "Arial", size = 12, color="black")
+  ) +
+  scale_fill_manual(
+    values = c("AMM1" = "#E41A1C", "AMM2" = "#1F77B4", "AMM3" = "green", "AMM4" = "#FF7F00", "AMM5" = "black", "AMM6" = "red"),  # Definir cores
+    labels = legend_labels  # Incluir coeficientes de correlação e RMSE na legenda
+  ) +
+  guides(fill = guide_legend(title = "Atmômetros")) 
+  
+
+
+
+
+
+
+
